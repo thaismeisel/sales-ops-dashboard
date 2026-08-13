@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Search, Briefcase, TrendingUp, ArrowUpRight, ShieldAlert, BarChart3, Layers } from 'lucide-react';
 
-const SCRIPT_URL = process.env.REACT_APP_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbzt2XEOV5vzaLskfyIHcLQtN5dUbL1vwFksKtnUU7U4sqpIRSnWYQxWTOS3_lWIxUGk/exec";
+const SCRIPT_URL = process.env.REACT_APP_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbwZUzZSbWw7tOGv6jCoCACzlWZkX6itx6YbKQycsxvF04xVsRuiMroeo7Nh6jxYyEEi/exec";
 
 export default function App() {
   const [data, setData] = useState({ monthlyResults: [], deals: [], jobs: [] });
@@ -48,7 +47,6 @@ export default function App() {
     String(d.deal_stage || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  // Robust field retriever that searches multiple possible key names
   const getVal = (obj, keys) => {
     if (!obj) return '—';
     for (let k of keys) {
@@ -132,6 +130,13 @@ export default function App() {
                     <th className="p-3.5 text-center">Happened</th>
                     <th className="p-3.5 text-center">Not Qual.</th>
                     <th className="p-3.5 text-center">No Shows %</th>
+                    
+                    {/* Column I */}
+                    <th className="p-3.5 text-center text-yellow-400 font-extrabold bg-yellow-950/30">Total Meetings Conv. (Col I)</th>
+                    
+                    {/* Column J */}
+                    <th className="p-3.5 text-center text-orange-400 font-extrabold bg-orange-950/30">Roles / Qual. Meetings (Col J)</th>
+                    
                     <th className="p-3.5 text-center">Roles/Meetings Conv.</th>
                     <th className="p-3.5 text-center">Roles W/ TS</th>
                     <th className="p-3.5 text-center">% Roles TS</th>
@@ -153,8 +158,19 @@ export default function App() {
                         <td className="p-3.5 text-center text-emerald-400">{getVal(m, ['Happened Meetings', 'Happened'])}</td>
                         <td className="p-3.5 text-center">{getVal(m, ['Not Qualified'])}</td>
                         <td className="p-3.5 text-center">{formatPct(getVal(m, ['No Shows %', 'No Shows']))}</td>
+                        
+                        {/* Column I Value */}
+                        <td className="p-3.5 text-center font-extrabold text-yellow-300 bg-yellow-950/20">
+                          {formatPct(getVal(m, ['total meetings booked conversion', 'total meetings conversion']))}
+                        </td>
+
+                        {/* Column J Value */}
+                        <td className="p-3.5 text-center font-extrabold text-orange-300 bg-orange-950/20">
+                          {formatPct(getVal(m, ['Roles Opened ÷ Meetings that actually Happened and qualified', 'Roles Opened + Meetings that actually Happened and qualified']))}
+                        </td>
+
                         <td className="p-3.5 text-center font-bold text-amber-400">
-                          {formatPct(getVal(m, ['Conversion: Roles / Meetings', 'Roles Opened ÷ Meetings that actually Happened and qualified', 'total meetings booked conversion']))}
+                          {formatPct(getVal(m, ['Conversion: Roles / Meetings']))}
                         </td>
                         <td className="p-3.5 text-center">{getVal(m, ['Roles With TS'])}</td>
                         <td className="p-3.5 text-center">{formatPct(getVal(m, ['% Roles With TS']))}</td>
@@ -290,7 +306,6 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-slate-700">
                   {filteredJobs.slice(0, 50).map((job, idx) => {
-                    const isCritical = String(job.aging_bucket || '').toLowerCase().includes('critical') || Number(job['Days Since Resume Sent']) > 10;
                     return (
                       <tr key={idx} className="hover:bg-slate-700/40 transition">
                         <td className="p-3.5 font-mono">
