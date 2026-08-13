@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Search, Briefcase, CheckCircle2, AlertTriangle, TrendingUp, Users, ArrowUpRight, ShieldAlert, BarChart3, Layers } from 'lucide-react';
+import { RefreshCw, Search, Briefcase, TrendingUp, ArrowUpRight, ShieldAlert, BarChart3, Layers } from 'lucide-react';
 
 const SCRIPT_URL = process.env.REACT_APP_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbzt2XEOV5vzaLskfyIHcLQtN5dUbL1vwFksKtnUU7U4sqpIRSnWYQxWTOS3_lWIxUGk/exec";
 
@@ -7,7 +7,7 @@ export default function App() {
   const [data, setData] = useState({ monthlyResults: [], deals: [], jobs: [] });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("overview"); // "overview" | "deals" | "jobs"
+  const [activeTab, setActiveTab] = useState("overview");
 
   const fetchData = async () => {
     setLoading(true);
@@ -28,7 +28,6 @@ export default function App() {
     fetchData();
   }, []);
 
-  // Action Items requiring attention in Current Month (August 2026)
   const urgentJobs = (data.jobs || []).filter(j => 
     String(j.aging_bucket || '').toLowerCase().includes('critical') || 
     Number(j['Days Since Resume Sent']) > 10 ||
@@ -48,17 +47,23 @@ export default function App() {
     String(d.deal_stage || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const formatPct = (val) => {
+    if (val === undefined || val === null || val === '' || isNaN(val)) return '—';
+    const num = Number(val);
+    return num <= 1 ? (num * 100).toFixed(1) + '%' : num.toFixed(1) + '%';
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 font-sans text-slate-100 bg-slate-900 min-h-screen">
       
-      {/* Top Header */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BarChart3 className="text-indigo-400" /> Sales & Recruitment Operations Dashboard
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Connected to Google Sheets Backend & HubSpot CRM Private API
+            Connected to Google Sheets & HubSpot CRM Private API
           </p>
         </div>
 
@@ -72,7 +77,7 @@ export default function App() {
         </button>
       </div>
 
-      {/* Main Tab Navigation */}
+      {/* Navigation */}
       <div className="flex gap-3 border-b border-slate-800 pb-3">
         <button 
           onClick={() => setActiveTab("overview")}
@@ -94,10 +99,9 @@ export default function App() {
         </button>
       </div>
 
-      {/* TAB 1: MONTHLY COMPARISON OVERVIEW */}
+      {/* OVERVIEW TAB */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          {/* Monthly Comparison Table */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
             <div className="p-5 border-b border-slate-700 flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
@@ -126,31 +130,35 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
-                  {(data.monthlyResults || []).map((m, idx) => (
-                    <tr key={idx} className={`hover:bg-slate-700/50 transition ${String(m.Month || '').includes('Aug') ? 'bg-indigo-950/30 font-bold border-l-4 border-indigo-500' : ''}`}>
-                      <td className="p-3.5 font-bold text-white">{m.Month || '—'}</td>
-                      <td className="p-3.5 text-center text-blue-400 font-extrabold">{m['Roles Opened'] ?? '—'}</td>
-                      <td className="p-3.5 text-center">{m['Meetings: Happened + Not Qualified'] ?? '—'}</td>
-                      <td className="p-3.5 text-center text-emerald-400">{m['Happened Meetings'] ?? '—'}</td>
-                      <td className="p-3.5 text-center">{m['Not Qualified'] ?? '—'}</td>
-                      <td className="p-3.5 text-center">{m['No Shows %'] ? (Number(m['No Shows %']) * 100).toFixed(1) + '%' : '—'}</td>
-                      <td className="p-3.5 text-center font-bold text-amber-400">
-                        {m['Conversion: Roles / Meetings'] ? (Number(m['Conversion: Roles / Meetings']) * 100).toFixed(1) + '%' : '—'}
-                      </td>
-                      <td className="p-3.5 text-center">{m['Roles With TS'] ?? '—'}</td>
-                      <td className="p-3.5 text-center">{m['% Roles With TS'] ? (Number(m['% Roles With TS']) * 100).toFixed(1) + '%' : '—'}</td>
-                      <td className="p-3.5 text-center font-black text-emerald-400 text-sm">{m['Active Roles (WIN)'] ?? '—'}</td>
-                      <td className="p-3.5 text-center text-emerald-400">{m['% Active Roles'] ? (Number(m['% Active Roles']) * 100).toFixed(1) + '%' : '—'}</td>
-                      <td className="p-3.5 text-center text-slate-400">{m['Lost Roles'] ?? '—'}</td>
-                      <td className="p-3.5 text-center text-indigo-300 font-bold">{m['Still in progress'] ?? '—'}</td>
-                    </tr>
-                  ))}
+                  {(data.monthlyResults || []).map((m, idx) => {
+                    const monthName = m['Month'] || m['Month Start'] || '—';
+                    if (!monthName || monthName === '—') return null;
+                    return (
+                      <tr key={idx} className={`hover:bg-slate-700/50 transition ${String(monthName).includes('Aug') ? 'bg-indigo-950/40 font-bold border-l-4 border-indigo-500' : ''}`}>
+                        <td className="p-3.5 font-bold text-white">{String(monthName).split('T')[0]}</td>
+                        <td className="p-3.5 text-center text-blue-400 font-extrabold">{m['Roles Opened'] ?? '—'}</td>
+                        <td className="p-3.5 text-center">{m['Meetings: Happened + Not Qualified'] ?? '—'}</td>
+                        <td className="p-3.5 text-center text-emerald-400">{m['Happened Meetings'] ?? '—'}</td>
+                        <td className="p-3.5 text-center">{m['Not Qualified'] ?? '—'}</td>
+                        <td className="p-3.5 text-center">{formatPct(m['No Shows %'])}</td>
+                        <td className="p-3.5 text-center font-bold text-amber-400">
+                          {formatPct(m['Conversion: Roles / Meetings'] || m['Roles Opened ÷ Meetings that actually Happened and qualified'])}
+                        </td>
+                        <td className="p-3.5 text-center">{m['Roles With TS'] ?? '—'}</td>
+                        <td className="p-3.5 text-center">{formatPct(m['% Roles With TS'])}</td>
+                        <td className="p-3.5 text-center font-black text-emerald-400 text-sm">{m['Active Roles (WIN)'] ?? '—'}</td>
+                        <td className="p-3.5 text-center text-emerald-400">{formatPct(m['% Active Roles'])}</td>
+                        <td className="p-3.5 text-center text-slate-400">{m['Lost Roles'] ?? '—'}</td>
+                        <td className="p-3.5 text-center text-indigo-300 font-bold">{m['Still in progress'] ?? '—'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* CURRENT MONTH ATTENTION HIGHLIGHT BOX */}
+          {/* Current Month Urgent Action Box */}
           <div className="bg-slate-800 p-6 rounded-2xl border border-red-500/30 shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 text-red-400 font-bold text-base">
@@ -183,7 +191,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TAB 2: DEALS MASTER (LEAD / DISCOVERY STAGE) */}
+      {/* DEALS TAB */}
       {activeTab === "deals" && (
         <div className="space-y-4">
           <div className="relative max-w-md">
@@ -241,7 +249,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TAB 3: JOBS MASTER (RECRUITMENT STAGE) */}
+      {/* JOBS TAB */}
       {activeTab === "jobs" && (
         <div className="space-y-4">
           <div className="relative max-w-md">
@@ -301,14 +309,6 @@ export default function App() {
                           {job.active_date && <div>Active: <span className="text-emerald-400 font-bold">{String(job.active_date).split('T')[0]}</span></div>}
                         </td>
                         <td className="p-3.5 max-w-xs">
-                          {isCritical ? (
-                            <div className="flex items-center gap-1 text-red-400 font-bold mb-1">
-                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                              <span>Critical SLA ({job['Days Since Resume Sent'] || '10+'} Days)</span>
-                            </div>
-                          ) : (
-                            <div className="text-slate-400 font-medium mb-1">{job.aging_bucket || 'On Track'}</div>
-                          )}
                           <p className="text-[11px] text-slate-400 truncate">{job['thais date and feedback'] || job.comment || 'No feedback notes'}</p>
                         </td>
                       </tr>
