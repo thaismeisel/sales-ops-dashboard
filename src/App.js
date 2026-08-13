@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Search, Briefcase, TrendingUp, ArrowUpRight, ShieldAlert, BarChart3, Layers, Sparkles } from 'lucide-react';
+import { RefreshCw, Search, Briefcase, TrendingUp, ArrowUpRight, ShieldAlert, BarChart3, Layers, Sparkles, Clock, UserCheck } from 'lucide-react';
 
 const SCRIPT_URL = process.env.REACT_APP_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbwZUzZSbWw7tOGv6jCoCACzlWZkX6itx6YbKQycsxvF04xVsRuiMroeo7Nh6jxYyEEi/exec";
 
@@ -28,25 +28,6 @@ export default function App() {
     fetchData();
   }, []);
 
-  const urgentJobs = (data.jobs || []).filter(j => 
-    String(j.aging_bucket || '').toLowerCase().includes('critical') || 
-    Number(j['Days Since Resume Sent']) > 10 ||
-    String(j.AT_RISK || '').toLowerCase().includes('yes')
-  );
-
-  const filteredJobs = (data.jobs || []).filter(j =>
-    String(j.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(j.company_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(j.job_owner || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(j.job_id || '').includes(search)
-  );
-
-  const filteredDeals = (data.deals || []).filter(d =>
-    String(d.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(d.hubspot_deal_id || '').includes(search) ||
-    String(d.deal_stage || '').toLowerCase().includes(search.toLowerCase())
-  );
-
   const getVal = (obj, keys) => {
     if (!obj) return '—';
     for (let k of keys) {
@@ -63,7 +44,35 @@ export default function App() {
     return num <= 1 ? (num * 100).toFixed(1) + '%' : num.toFixed(1) + '%';
   };
 
-  // Determine current active month dynamically (e.g. "Aug 2026")
+  // 1. FILTER BOX 1: Stuck on Resumes Sent (> 5 Days)
+  const stuckResumesSent = (data.jobs || []).filter(j => {
+    const stage = String(getVal(j, ['deal_stage', 'Deal Stage', 'stage'])).toLowerCase();
+    const daysSent = Number(getVal(j, ['Days Since Resume Sent', 'days_since_resume_sent', 'days_in_stage'])) || 0;
+    
+    return stage.includes('resume') && daysSent > 5;
+  });
+
+  // 2. FILTER BOX 2: Stuck in Interview Stage (> 10 Days)
+  const stuckInterviews = (data.jobs || []).filter(j => {
+    const stage = String(getVal(j, ['deal_stage', 'Deal Stage', 'stage'])).toLowerCase();
+    const daysInStage = Number(getVal(j, ['Days Since Resume Sent', 'days_in_stage', 'days_since_interview'])) || 0;
+    
+    return stage.includes('interview') && daysInStage > 10;
+  });
+
+  const filteredJobs = (data.jobs || []).filter(j =>
+    String(j.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(j.company_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(j.job_owner || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(j.job_id || '').includes(search)
+  );
+
+  const filteredDeals = (data.deals || []).filter(d =>
+    String(d.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(d.hubspot_deal_id || '').includes(search) ||
+    String(d.deal_stage || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   const getCurrentMonthKey = () => {
     const now = new Date();
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -144,14 +153,12 @@ export default function App() {
                     <th className="p-3.5 text-center">Total Meetings Conv.</th>
                     <th className="p-3.5 text-center">Roles / Qual. Meetings</th>
                     
-                    {/* HIGHLIGHTED COLUMN 1 */}
                     <th className="p-3.5 text-center text-amber-400 font-black bg-amber-500/10 border-x border-amber-500/20">
                       Roles/Meetings Conv.
                     </th>
                     
                     <th className="p-3.5 text-center">Roles W/ TS</th>
                     
-                    {/* HIGHLIGHTED COLUMN 2 */}
                     <th className="p-3.5 text-center text-emerald-400 font-black bg-emerald-500/10 border-x border-emerald-500/20">
                       % Roles TS
                     </th>
@@ -168,8 +175,6 @@ export default function App() {
                     if (!rawMonth || rawMonth === '—' || String(rawMonth).toLowerCase().includes('definition')) return null;
                     
                     const monthStr = String(rawMonth).split('T')[0];
-                    
-                    // Check if row matches current calendar month (e.g. "Aug 2026")
                     const isCurrentMonth = monthStr.toLowerCase().includes(currentMonthKey.toLowerCase()) || 
                                            (monthStr.toLowerCase().includes('aug') && currentMonthKey.includes('Aug'));
 
@@ -182,7 +187,6 @@ export default function App() {
                             : 'hover:bg-slate-700/40 text-xs'
                         }`}
                       >
-                        {/* Month Name */}
                         <td className="p-4 font-extrabold text-white">
                           <div className="flex items-center gap-2">
                             <span>{monthStr}</span>
@@ -204,14 +208,12 @@ export default function App() {
                         <td className="p-4 text-center">{formatPct(getVal(m, ['total meetings booked conversion', 'total meetings conversion']))}</td>
                         <td className="p-4 text-center">{formatPct(getVal(m, ['Roles Opened ÷ Meetings that actually Happened and qualified', 'Roles Opened + Meetings that actually Happened and qualified']))}</td>
                         
-                        {/* HIGHLIGHTED COLUMN 1 */}
                         <td className={`p-4 text-center font-extrabold bg-amber-500/10 border-x border-amber-500/20 text-amber-300 ${isCurrentMonth ? 'text-base font-black' : ''}`}>
                           {formatPct(getVal(m, ['Conversion: Roles / Meetings']))}
                         </td>
 
                         <td className="p-4 text-center">{getVal(m, ['Roles With TS'])}</td>
 
-                        {/* HIGHLIGHTED COLUMN 2 */}
                         <td className={`p-4 text-center font-extrabold bg-emerald-500/10 border-x border-emerald-500/20 text-emerald-300 ${isCurrentMonth ? 'text-base font-black' : ''}`}>
                           {formatPct(getVal(m, ['% Roles With TS']))}
                         </td>
@@ -232,35 +234,83 @@ export default function App() {
             </div>
           </div>
 
-          {/* Current Month Urgent Action Box */}
-          <div className="bg-slate-800 p-6 rounded-2xl border border-red-500/30 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-red-400 font-bold text-base">
-                <ShieldAlert className="w-5 h-5" /> Current Month Deals Needing Attention ({urgentJobs.length} Critical SLA Risks)
+          {/* JOBS NEEDING ACTION SECTION (SIDE-BY-SIDE PANELS) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* BOX 1: STUCK ON RESUMES SENT (> 5 DAYS) */}
+            <div className="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-base">
+                  <Clock className="w-5 h-5 shrink-0" /> Deals Stuck on "Resumes Sent" ({stuckResumesSent.length})
+                </div>
+                <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1 rounded-full font-bold border border-amber-500/20">
+                  &gt; 5 Days In Stage
+                </span>
               </div>
-              <span className="text-xs bg-red-500/10 text-red-400 px-3 py-1 rounded-full font-bold border border-red-500/20">
-                Action Required
-              </span>
+
+              {stuckResumesSent.length === 0 ? (
+                <div className="text-slate-400 text-xs text-center py-6">No jobs currently stuck in Resumes Sent &gt; 5 days.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                  {stuckResumesSent.map((job, i) => (
+                    <div key={i} className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-700 hover:border-amber-500/50 transition">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold text-white text-xs">{getVal(job, ['client_name', 'Client Name']) || 'Unnamed Client'}</div>
+                          <div className="text-[11px] text-slate-400">{getVal(job, ['company_name', 'Company']) || '—'}</div>
+                        </div>
+                        <span className="text-[10px] font-mono text-amber-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                          {getVal(job, ['job_id', 'Job ID'])}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-[11px] space-y-0.5">
+                        <div className="text-slate-300">Owner: <span className="text-white font-semibold">{getVal(job, ['job_owner', 'TS Owner'])}</span></div>
+                        <div className="text-amber-400 font-bold">In Stage: {getVal(job, ['Days Since Resume Sent', 'days_in_stage'])} Days</div>
+                        <p className="text-slate-400 truncate mt-1 text-[10px]">{getVal(job, ['thais date and feedback', 'comment']) || 'No recent notes'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {urgentJobs.slice(0, 6).map((job, i) => (
-                <div key={i} className="bg-slate-900 p-4 rounded-xl border border-slate-700 hover:border-red-500/50 transition">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-bold text-white text-sm">{job.client_name || 'Unnamed Client'}</div>
-                      <div className="text-xs text-slate-400">{job.company_name || '—'}</div>
-                    </div>
-                    <span className="text-xs font-mono text-indigo-300 bg-slate-800 px-2 py-0.5 rounded">{job.job_id}</span>
-                  </div>
-                  <div className="mt-3 text-xs space-y-1">
-                    <div className="text-slate-300">Owner: <span className="text-white font-semibold">{job.job_owner || 'Unassigned'}</span></div>
-                    <div className="text-red-400 font-bold">Aging: {job.aging_bucket || '>10 Days Without Feedback'}</div>
-                    <p className="text-slate-400 truncate mt-1">{job['thais date and feedback'] || job.comment || 'No recent notes'}</p>
-                  </div>
+            {/* BOX 2: STUCK IN INTERVIEW STAGE (> 10 DAYS) */}
+            <div className="bg-slate-800 p-6 rounded-2xl border border-red-500/30 shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                <div className="flex items-center gap-2 text-red-400 font-bold text-base">
+                  <UserCheck className="w-5 h-5 shrink-0" /> Stuck in "Interview" Stage ({stuckInterviews.length})
                 </div>
-              ))}
+                <span className="text-xs bg-red-500/10 text-red-400 px-3 py-1 rounded-full font-bold border border-red-500/20">
+                  &gt; 10 Days In Stage
+                </span>
+              </div>
+
+              {stuckInterviews.length === 0 ? (
+                <div className="text-slate-400 text-xs text-center py-6">No jobs currently stuck in Interview stage &gt; 10 days.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                  {stuckInterviews.map((job, i) => (
+                    <div key={i} className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-700 hover:border-red-500/50 transition">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold text-white text-xs">{getVal(job, ['client_name', 'Client Name']) || 'Unnamed Client'}</div>
+                          <div className="text-[11px] text-slate-400">{getVal(job, ['company_name', 'Company']) || '—'}</div>
+                        </div>
+                        <span className="text-[10px] font-mono text-indigo-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                          {getVal(job, ['job_id', 'Job ID'])}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-[11px] space-y-0.5">
+                        <div className="text-slate-300">Owner: <span className="text-white font-semibold">{getVal(job, ['job_owner', 'TS Owner'])}</span></div>
+                        <div className="text-red-400 font-bold">In Stage: {getVal(job, ['Days Since Resume Sent', 'days_in_stage'])} Days</div>
+                        <p className="text-slate-400 truncate mt-1 text-[10px]">{getVal(job, ['thais date and feedback', 'comment']) || 'No recent notes'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
           </div>
         </div>
       )}
