@@ -14,7 +14,7 @@ export default function App() {
     try {
       const res = await fetch(SCRIPT_URL);
       const json = await res.json();
-      if (json.status === "success") {
+      if (json.status === "success" || json.monthlyResults) {
         setData(json);
       }
     } catch (err) {
@@ -47,8 +47,19 @@ export default function App() {
     String(d.deal_stage || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  // Robust field retriever that searches multiple possible key names
+  const getVal = (obj, keys) => {
+    if (!obj) return '—';
+    for (let k of keys) {
+      if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') {
+        return obj[k];
+      }
+    }
+    return '—';
+  };
+
   const formatPct = (val) => {
-    if (val === undefined || val === null || val === '' || isNaN(val)) return '—';
+    if (val === undefined || val === null || val === '—' || val === '' || isNaN(val)) return '—';
     const num = Number(val);
     return num <= 1 ? (num * 100).toFixed(1) + '%' : num.toFixed(1) + '%';
   };
@@ -77,7 +88,7 @@ export default function App() {
         </button>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation Tabs */}
       <div className="flex gap-3 border-b border-slate-800 pb-3">
         <button 
           onClick={() => setActiveTab("overview")}
@@ -131,25 +142,25 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-slate-700">
                   {(data.monthlyResults || []).map((m, idx) => {
-                    const monthName = m['Month'] || m['Month Start'] || '—';
-                    if (!monthName || monthName === '—') return null;
+                    const monthName = getVal(m, ['Month', 'Month Start', 'month']);
+                    if (!monthName || monthName === '—' || String(monthName).toLowerCase().includes('definition')) return null;
                     return (
                       <tr key={idx} className={`hover:bg-slate-700/50 transition ${String(monthName).includes('Aug') ? 'bg-indigo-950/40 font-bold border-l-4 border-indigo-500' : ''}`}>
                         <td className="p-3.5 font-bold text-white">{String(monthName).split('T')[0]}</td>
-                        <td className="p-3.5 text-center text-blue-400 font-extrabold">{m['Roles Opened'] ?? '—'}</td>
-                        <td className="p-3.5 text-center">{m['Meetings: Happened + Not Qualified'] ?? '—'}</td>
-                        <td className="p-3.5 text-center text-emerald-400">{m['Happened Meetings'] ?? '—'}</td>
-                        <td className="p-3.5 text-center">{m['Not Qualified'] ?? '—'}</td>
-                        <td className="p-3.5 text-center">{formatPct(m['No Shows %'])}</td>
+                        <td className="p-3.5 text-center text-blue-400 font-extrabold">{getVal(m, ['Roles Opened', 'roles_opened'])}</td>
+                        <td className="p-3.5 text-center">{getVal(m, ['Meetings: Happened + Not Qualified', 'Meetings', 'total_meetings'])}</td>
+                        <td className="p-3.5 text-center text-emerald-400">{getVal(m, ['Happened Meetings', 'Happened'])}</td>
+                        <td className="p-3.5 text-center">{getVal(m, ['Not Qualified'])}</td>
+                        <td className="p-3.5 text-center">{formatPct(getVal(m, ['No Shows %', 'No Shows']))}</td>
                         <td className="p-3.5 text-center font-bold text-amber-400">
-                          {formatPct(m['Conversion: Roles / Meetings'] || m['Roles Opened ÷ Meetings that actually Happened and qualified'])}
+                          {formatPct(getVal(m, ['Conversion: Roles / Meetings', 'Roles Opened ÷ Meetings that actually Happened and qualified', 'total meetings booked conversion']))}
                         </td>
-                        <td className="p-3.5 text-center">{m['Roles With TS'] ?? '—'}</td>
-                        <td className="p-3.5 text-center">{formatPct(m['% Roles With TS'])}</td>
-                        <td className="p-3.5 text-center font-black text-emerald-400 text-sm">{m['Active Roles (WIN)'] ?? '—'}</td>
-                        <td className="p-3.5 text-center text-emerald-400">{formatPct(m['% Active Roles'])}</td>
-                        <td className="p-3.5 text-center text-slate-400">{m['Lost Roles'] ?? '—'}</td>
-                        <td className="p-3.5 text-center text-indigo-300 font-bold">{m['Still in progress'] ?? '—'}</td>
+                        <td className="p-3.5 text-center">{getVal(m, ['Roles With TS'])}</td>
+                        <td className="p-3.5 text-center">{formatPct(getVal(m, ['% Roles With TS']))}</td>
+                        <td className="p-3.5 text-center font-black text-emerald-400 text-sm">{getVal(m, ['Active Roles (WIN)', 'Active Roles'])}</td>
+                        <td className="p-3.5 text-center text-emerald-400">{formatPct(getVal(m, ['% Active Roles']))}</td>
+                        <td className="p-3.5 text-center text-slate-400">{getVal(m, ['Lost Roles'])}</td>
+                        <td className="p-3.5 text-center text-indigo-300 font-bold">{getVal(m, ['Still in progress', 'In Progress'])}</td>
                       </tr>
                     );
                   })}
