@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Search, Briefcase, TrendingUp, ArrowUpRight, ShieldAlert, BarChart3, Layers } from 'lucide-react';
+import { RefreshCw, Search, Briefcase, TrendingUp, ArrowUpRight, ShieldAlert, BarChart3, Layers, Sparkles } from 'lucide-react';
 
 const SCRIPT_URL = process.env.REACT_APP_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbwZUzZSbWw7tOGv6jCoCACzlWZkX6itx6YbKQycsxvF04xVsRuiMroeo7Nh6jxYyEEi/exec";
 
@@ -63,6 +63,15 @@ export default function App() {
     return num <= 1 ? (num * 100).toFixed(1) + '%' : num.toFixed(1) + '%';
   };
 
+  // Determine current active month dynamically (e.g. "Aug 2026")
+  const getCurrentMonthKey = () => {
+    const now = new Date();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[now.getMonth()]} ${now.getFullYear()}`;
+  };
+
+  const currentMonthKey = getCurrentMonthKey();
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 font-sans text-slate-100 bg-slate-900 min-h-screen">
       
@@ -117,7 +126,9 @@ export default function App() {
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <TrendingUp className="text-emerald-400 w-5 h-5" /> Month-by-Month Sales Results
               </h2>
-              <span className="text-xs text-slate-400">Source: monthly_results tab</span>
+              <span className="text-xs text-slate-400 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Active Month Emphasis Auto-Applied
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -130,54 +141,89 @@ export default function App() {
                     <th className="p-3.5 text-center">Happened</th>
                     <th className="p-3.5 text-center">Not Qual.</th>
                     <th className="p-3.5 text-center">No Shows %</th>
+                    <th className="p-3.5 text-center">Total Meetings Conv.</th>
+                    <th className="p-3.5 text-center">Roles / Qual. Meetings</th>
                     
-                    {/* Column I */}
-                    <th className="p-3.5 text-center text-yellow-400 font-extrabold bg-yellow-950/30">Total Meetings Conv. (Col I)</th>
+                    {/* HIGHLIGHTED COLUMN 1 */}
+                    <th className="p-3.5 text-center text-amber-400 font-black bg-amber-500/10 border-x border-amber-500/20">
+                      Roles/Meetings Conv.
+                    </th>
                     
-                    {/* Column J */}
-                    <th className="p-3.5 text-center text-orange-400 font-extrabold bg-orange-950/30">Roles / Qual. Meetings (Col J)</th>
-                    
-                    <th className="p-3.5 text-center">Roles/Meetings Conv.</th>
                     <th className="p-3.5 text-center">Roles W/ TS</th>
-                    <th className="p-3.5 text-center">% Roles TS</th>
+                    
+                    {/* HIGHLIGHTED COLUMN 2 */}
+                    <th className="p-3.5 text-center text-emerald-400 font-black bg-emerald-500/10 border-x border-emerald-500/20">
+                      % Roles TS
+                    </th>
+                    
                     <th className="p-3.5 text-center text-emerald-400">Active Roles (WIN)</th>
                     <th className="p-3.5 text-center">% WIN</th>
                     <th className="p-3.5 text-center">Lost Roles</th>
                     <th className="p-3.5 text-center">In Progress</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700">
+                <tbody className="divide-y divide-slate-700/60">
                   {(data.monthlyResults || []).map((m, idx) => {
-                    const monthName = getVal(m, ['Month', 'Month Start', 'month']);
-                    if (!monthName || monthName === '—' || String(monthName).toLowerCase().includes('definition')) return null;
+                    const rawMonth = getVal(m, ['Month', 'Month Start', 'month']);
+                    if (!rawMonth || rawMonth === '—' || String(rawMonth).toLowerCase().includes('definition')) return null;
+                    
+                    const monthStr = String(rawMonth).split('T')[0];
+                    
+                    // Check if row matches current calendar month (e.g. "Aug 2026")
+                    const isCurrentMonth = monthStr.toLowerCase().includes(currentMonthKey.toLowerCase()) || 
+                                           (monthStr.toLowerCase().includes('aug') && currentMonthKey.includes('Aug'));
+
                     return (
-                      <tr key={idx} className={`hover:bg-slate-700/50 transition ${String(monthName).includes('Aug') ? 'bg-indigo-950/40 font-bold border-l-4 border-indigo-500' : ''}`}>
-                        <td className="p-3.5 font-bold text-white">{String(monthName).split('T')[0]}</td>
-                        <td className="p-3.5 text-center text-blue-400 font-extrabold">{getVal(m, ['Roles Opened', 'roles_opened'])}</td>
-                        <td className="p-3.5 text-center">{getVal(m, ['Meetings: Happened + Not Qualified', 'Meetings', 'total_meetings'])}</td>
-                        <td className="p-3.5 text-center text-emerald-400">{getVal(m, ['Happened Meetings', 'Happened'])}</td>
-                        <td className="p-3.5 text-center">{getVal(m, ['Not Qualified'])}</td>
-                        <td className="p-3.5 text-center">{formatPct(getVal(m, ['No Shows %', 'No Shows']))}</td>
+                      <tr 
+                        key={idx} 
+                        className={`transition duration-150 ${
+                          isCurrentMonth 
+                            ? 'bg-indigo-950/60 font-bold border-l-8 border-indigo-500 text-sm shadow-inner' 
+                            : 'hover:bg-slate-700/40 text-xs'
+                        }`}
+                      >
+                        {/* Month Name */}
+                        <td className="p-4 font-extrabold text-white">
+                          <div className="flex items-center gap-2">
+                            <span>{monthStr}</span>
+                            {isCurrentMonth && (
+                              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-black uppercase px-2 py-0.5 rounded-full border border-indigo-500/40 tracking-wider">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className={`p-4 text-center font-black ${isCurrentMonth ? 'text-blue-300 text-base' : 'text-blue-400'}`}>
+                          {getVal(m, ['Roles Opened', 'roles_opened'])}
+                        </td>
+                        <td className="p-4 text-center">{getVal(m, ['Meetings: Happened + Not Qualified', 'Meetings', 'total_meetings'])}</td>
+                        <td className="p-4 text-center text-emerald-400">{getVal(m, ['Happened Meetings', 'Happened'])}</td>
+                        <td className="p-4 text-center">{getVal(m, ['Not Qualified'])}</td>
+                        <td className="p-4 text-center">{formatPct(getVal(m, ['No Shows %', 'No Shows']))}</td>
+                        <td className="p-4 text-center">{formatPct(getVal(m, ['total meetings booked conversion', 'total meetings conversion']))}</td>
+                        <td className="p-4 text-center">{formatPct(getVal(m, ['Roles Opened ÷ Meetings that actually Happened and qualified', 'Roles Opened + Meetings that actually Happened and qualified']))}</td>
                         
-                        {/* Column I Value */}
-                        <td className="p-3.5 text-center font-extrabold text-yellow-300 bg-yellow-950/20">
-                          {formatPct(getVal(m, ['total meetings booked conversion', 'total meetings conversion']))}
-                        </td>
-
-                        {/* Column J Value */}
-                        <td className="p-3.5 text-center font-extrabold text-orange-300 bg-orange-950/20">
-                          {formatPct(getVal(m, ['Roles Opened ÷ Meetings that actually Happened and qualified', 'Roles Opened + Meetings that actually Happened and qualified']))}
-                        </td>
-
-                        <td className="p-3.5 text-center font-bold text-amber-400">
+                        {/* HIGHLIGHTED COLUMN 1 */}
+                        <td className={`p-4 text-center font-extrabold bg-amber-500/10 border-x border-amber-500/20 text-amber-300 ${isCurrentMonth ? 'text-base font-black' : ''}`}>
                           {formatPct(getVal(m, ['Conversion: Roles / Meetings']))}
                         </td>
-                        <td className="p-3.5 text-center">{getVal(m, ['Roles With TS'])}</td>
-                        <td className="p-3.5 text-center">{formatPct(getVal(m, ['% Roles With TS']))}</td>
-                        <td className="p-3.5 text-center font-black text-emerald-400 text-sm">{getVal(m, ['Active Roles (WIN)', 'Active Roles'])}</td>
-                        <td className="p-3.5 text-center text-emerald-400">{formatPct(getVal(m, ['% Active Roles']))}</td>
-                        <td className="p-3.5 text-center text-slate-400">{getVal(m, ['Lost Roles'])}</td>
-                        <td className="p-3.5 text-center text-indigo-300 font-bold">{getVal(m, ['Still in progress', 'In Progress'])}</td>
+
+                        <td className="p-4 text-center">{getVal(m, ['Roles With TS'])}</td>
+
+                        {/* HIGHLIGHTED COLUMN 2 */}
+                        <td className={`p-4 text-center font-extrabold bg-emerald-500/10 border-x border-emerald-500/20 text-emerald-300 ${isCurrentMonth ? 'text-base font-black' : ''}`}>
+                          {formatPct(getVal(m, ['% Roles With TS']))}
+                        </td>
+
+                        <td className={`p-4 text-center font-black text-emerald-400 ${isCurrentMonth ? 'text-lg' : 'text-sm'}`}>
+                          {getVal(m, ['Active Roles (WIN)', 'Active Roles'])}
+                        </td>
+                        <td className="p-4 text-center text-emerald-400">{formatPct(getVal(m, ['% Active Roles']))}</td>
+                        <td className="p-4 text-center text-slate-400">{getVal(m, ['Lost Roles'])}</td>
+                        <td className={`p-4 text-center font-extrabold ${isCurrentMonth ? 'text-indigo-200 text-base' : 'text-indigo-300'}`}>
+                          {getVal(m, ['Still in progress', 'In Progress'])}
+                        </td>
                       </tr>
                     );
                   })}
