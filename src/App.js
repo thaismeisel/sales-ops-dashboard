@@ -44,21 +44,36 @@ export default function App() {
     return num <= 1 ? (num * 100).toFixed(1) + '%' : num.toFixed(1) + '%';
   };
 
-  // 1. FILTER BOX 1: Stuck on Resumes Sent (> 5 Days)
-  const stuckResumesSent = (data.jobs || []).filter(j => {
-    const stage = String(getVal(j, ['deal_stage', 'Deal Stage', 'stage'])).toLowerCase();
-    const daysSent = Number(getVal(j, ['Days Since Resume Sent', 'days_since_resume_sent', 'days_in_stage'])) || 0;
+  // Helper function to calculate days elapsed from a date string to Today
+  const getDaysElapsed = (dateVal) => {
+    if (!dateVal || dateVal === '—') return null;
+    const parsedDate = new Date(dateVal);
+    if (isNaN(parsedDate.getTime())) return null;
     
-    return stage.includes('resume') && daysSent > 5;
-  });
+    const today = new Date();
+    const diffTime = Math.abs(today - parsedDate);
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  };
 
-  // 2. FILTER BOX 2: Stuck in Interview Stage (> 10 Days)
-  const stuckInterviews = (data.jobs || []).filter(j => {
-    const stage = String(getVal(j, ['deal_stage', 'Deal Stage', 'stage'])).toLowerCase();
-    const daysInStage = Number(getVal(j, ['Days Since Resume Sent', 'days_in_stage', 'days_since_interview'])) || 0;
-    
-    return stage.includes('interview') && daysInStage > 10;
-  });
+  // Check if job is still active/open
+  const isJobOpen = (j) => {
+    const status = String(getVal(j, ['job_status', 'Job Status', 'status'])).toLowerCase();
+    return !status.includes('filled') && !status.includes('cancelled') && !status.includes('closed');
+  };
+
+  // 1. FILTER BOX 1: Endorsement Date > 5 Days Ago
+  const stuckResumesSent = (data.jobs || []).map(j => {
+    const endDate = getVal(j, ['endorsements_date', 'endorsement_date', 'Endorsement Date', 'Endorsements Date']);
+    const days = getDaysElapsed(endDate);
+    return { ...j, calculatedDays: days, rawDate: endDate };
+  }).filter(j => isJobOpen(j) && j.calculatedDays !== null && j.calculatedDays > 5);
+
+  // 2. FILTER BOX 2: TS Date > 10 Days Ago
+  const stuckInterviews = (data.jobs || []).map(j => {
+    const tsDate = getVal(j, ['ts_date', 'TS Date', 'ts date', 'TS_date']);
+    const days = getDaysElapsed(tsDate);
+    return { ...j, calculatedDays: days, rawDate: tsDate };
+  }).filter(j => isJobOpen(j) && j.calculatedDays !== null && j.calculatedDays > 10);
 
   const filteredJobs = (data.jobs || []).filter(j =>
     String(j.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -237,19 +252,19 @@ export default function App() {
           {/* JOBS NEEDING ACTION SECTION (SIDE-BY-SIDE PANELS) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* BOX 1: STUCK ON RESUMES SENT (> 5 DAYS) */}
+            {/* BOX 1: STUCK ON RESUMES SENT (Column N Endorsements Date > 5 Days) */}
             <div className="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 shadow-2xl space-y-4">
               <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
                 <div className="flex items-center gap-2 text-amber-400 font-bold text-base">
-                  <Clock className="w-5 h-5 shrink-0" /> Deals Stuck on "Resumes Sent" ({stuckResumesSent.length})
+                  <Clock className="w-5 h-5 shrink-0" /> Resumes Sent &gt; 5 Days Without Action ({stuckResumesSent.length})
                 </div>
                 <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1 rounded-full font-bold border border-amber-500/20">
-                  &gt; 5 Days In Stage
+                  Col N: Endorsements Date
                 </span>
               </div>
 
               {stuckResumesSent.length === 0 ? (
-                <div className="text-slate-400 text-xs text-center py-6">No jobs currently stuck in Resumes Sent &gt; 5 days.</div>
+                <div className="text-slate-400 text-xs text-center py-6">No jobs with endorsements sent &gt; 5 days ago.</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
                   {stuckResumesSent.map((job, i) => (
@@ -265,7 +280,8 @@ export default function App() {
                       </div>
                       <div className="mt-2 text-[11px] space-y-0.5">
                         <div className="text-slate-300">Owner: <span className="text-white font-semibold">{getVal(job, ['job_owner', 'TS Owner'])}</span></div>
-                        <div className="text-amber-400 font-bold">In Stage: {getVal(job, ['Days Since Resume Sent', 'days_in_stage'])} Days</div>
+                        <div className="text-amber-400 font-bold">Endorsed: {job.calculatedDays} Days Ago</div>
+                        <div className="text-slate-400 text-[10px]">Date: {String(job.rawDate).split('T')[0]}</div>
                         <p className="text-slate-400 truncate mt-1 text-[10px]">{getVal(job, ['thais date and feedback', 'comment']) || 'No recent notes'}</p>
                       </div>
                     </div>
@@ -274,19 +290,19 @@ export default function App() {
               )}
             </div>
 
-            {/* BOX 2: STUCK IN INTERVIEW STAGE (> 10 DAYS) */}
+            {/* BOX 2: STUCK IN INTERVIEW STAGE (Column L TS Date > 10 Days) */}
             <div className="bg-slate-800 p-6 rounded-2xl border border-red-500/30 shadow-2xl space-y-4">
               <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
                 <div className="flex items-center gap-2 text-red-400 font-bold text-base">
-                  <UserCheck className="w-5 h-5 shrink-0" /> Stuck in "Interview" Stage ({stuckInterviews.length})
+                  <UserCheck className="w-5 h-5 shrink-0" /> Interview Stage &gt; 10 Days Without Progress ({stuckInterviews.length})
                 </div>
                 <span className="text-xs bg-red-500/10 text-red-400 px-3 py-1 rounded-full font-bold border border-red-500/20">
-                  &gt; 10 Days In Stage
+                  Col L: TS Date
                 </span>
               </div>
 
               {stuckInterviews.length === 0 ? (
-                <div className="text-slate-400 text-xs text-center py-6">No jobs currently stuck in Interview stage &gt; 10 days.</div>
+                <div className="text-slate-400 text-xs text-center py-6">No jobs with TS Date &gt; 10 days ago.</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
                   {stuckInterviews.map((job, i) => (
@@ -302,7 +318,8 @@ export default function App() {
                       </div>
                       <div className="mt-2 text-[11px] space-y-0.5">
                         <div className="text-slate-300">Owner: <span className="text-white font-semibold">{getVal(job, ['job_owner', 'TS Owner'])}</span></div>
-                        <div className="text-red-400 font-bold">In Stage: {getVal(job, ['Days Since Resume Sent', 'days_in_stage'])} Days</div>
+                        <div className="text-red-400 font-bold">TS Attached: {job.calculatedDays} Days Ago</div>
+                        <div className="text-slate-400 text-[10px]">Date: {String(job.rawDate).split('T')[0]}</div>
                         <p className="text-slate-400 truncate mt-1 text-[10px]">{getVal(job, ['thais date and feedback', 'comment']) || 'No recent notes'}</p>
                       </div>
                     </div>
